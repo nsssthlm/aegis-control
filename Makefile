@@ -1,8 +1,13 @@
-.PHONY: dev stop logs test smoke demo-alert demo-presence voice-test build clean install
+.PHONY: dev stop logs test smoke demo-alert demo-presence voice-test build clean install tunnel
 
 install:
 	pip3 install -r requirements.txt
 	docker compose build
+
+tunnel:
+	@echo "Opening SSH tunnel: localhost:10443 → 10.83.0.1:443 via n8n-server"
+	@echo "UniFi API will be reachable at https://localhost:10443"
+	ssh -p 2222 -N -L 10443:10.83.0.1:443 nss@185.167.84.22
 
 dev:
 	docker compose up -d

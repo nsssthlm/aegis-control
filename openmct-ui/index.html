@@ -8,6 +8,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F6E1;</text></svg>">
+  <script>
+    // Configure backend hosts (edit these if running on different IPs)
+    window.AEGIS_ORION_HOST = 'http://' + (location.hostname || 'localhost') + ':8001';
+    window.AEGIS_HERALD_HOST = 'http://' + (location.hostname || 'localhost') + ':8002';
+  </script>
   <style>
     /* ═══════════════════════════════════════════════════════════════
        AEGIS CONTROL — CORE CSS

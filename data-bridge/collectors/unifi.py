@@ -29,6 +29,7 @@ class UniFiCollector:
         self.api_key = config.get("unifi_key", "")
         self._running = False
         self.fail_count = 0
+        self._site_id = None  # discovered at first poll
 
         # WAN state tracking
         self._wan_was_up: bool | None = None
@@ -47,9 +48,29 @@ class UniFiCollector:
             "Accept": "application/json",
         }
 
+    async def _discover_site_id(self, client: httpx.AsyncClient) -> str:
+        """Discover the first site ID from the UniFi API."""
+        url = f"{self.url}/proxy/network/integration/v1/sites"
+        resp = await client.get(url, headers=self._headers(), timeout=API_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        sites = data.get("data", [])
+        if sites:
+            site_id = sites[0].get("id", "default")
+            print(f"[UNIFI/{self.env}] Discovered site: {sites[0].get('name', '?')} ({site_id})")
+            return site_id
+        return "default"
+
+    async def _get_site_id(self, client: httpx.AsyncClient) -> str:
+        """Get site ID, discovering it on first call."""
+        if self._site_id is None:
+            self._site_id = await self._discover_site_id(client)
+        return self._site_id
+
     async def _fetch_clients(self, client: httpx.AsyncClient) -> list[dict]:
         """Fetch connected clients from UniFi API."""
-        url = f"{self.url}/proxy/network/integration/v1/sites/default/clients"
+        site = await self._get_site_id(client)
+        url = f"{self.url}/proxy/network/integration/v1/sites/{site}/clients"
         resp = await client.get(url, headers=self._headers(), timeout=API_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
@@ -57,7 +78,8 @@ class UniFiCollector:
 
     async def _fetch_devices(self, client: httpx.AsyncClient) -> list[dict]:
         """Fetch network devices from UniFi API."""
-        url = f"{self.url}/proxy/network/integration/v1/sites/default/devices"
+        site = await self._get_site_id(client)
+        url = f"{self.url}/proxy/network/integration/v1/sites/{site}/devices"
         resp = await client.get(url, headers=self._headers(), timeout=API_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()

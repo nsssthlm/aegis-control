@@ -13,8 +13,9 @@
 
   const STORAGE_KEY = 'aegis-ai-history';
   const TYPING_SPEED = 25; // ms per character
-  const HERALD_URL = '/api/herald/speak';
-  const AI_QUERY_URL = '/api/ai/query';
+  const ORION_HOST = window.AEGIS_ORION_HOST || 'http://localhost:8001';
+  const HERALD_URL = (window.AEGIS_HERALD_HOST || 'http://localhost:8002') + '/speak';
+  const AI_QUERY_URL = ORION_HOST + '/api/query';
   const SHORT_ANSWER_WORDS = 20;
 
   let isProcessing = false;
@@ -104,6 +105,55 @@
       border-color: rgba(255, 170, 0, 0.3);
     }
 
+    .ai-mic-btn {
+      background: var(--aegis-surface);
+      border: 1px solid var(--aegis-border);
+      color: var(--aegis-dim);
+      font-size: 16px;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .ai-mic-btn:hover:not(:disabled) {
+      border-color: var(--aegis-dim);
+      color: var(--aegis-primary);
+    }
+    .ai-mic-btn.listening {
+      color: #ff3333;
+      border-color: rgba(255, 51, 51, 0.5);
+      box-shadow: 0 0 12px rgba(255, 51, 51, 0.3);
+      animation: micPulse 1.2s ease-in-out infinite;
+    }
+    .ai-mic-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(255, 51, 51, 0.2); }
+      50% { box-shadow: 0 0 16px rgba(255, 51, 51, 0.5); }
+    }
+    .ai-mic-status {
+      font-size: 9px;
+      color: #ff3333;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: none;
+      flex-shrink: 0;
+    }
+    .ai-mic-status.active {
+      display: inline;
+      animation: micStatusBlink 0.8s step-end infinite;
+    }
+    @keyframes micStatusBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
     .ai-response-area {
       flex: 1;
       min-height: 30px;
@@ -172,6 +222,8 @@
       <div class="ai-input-row">
         <span class="ai-label">AI QUERY:</span>
         <input type="text" class="ai-input" id="ai-input" placeholder="Enter command or question..." autocomplete="off" spellcheck="false">
+        <button class="ai-mic-btn" id="ai-mic-btn" title="Voice input (Chrome)">&#x1F399;</button>
+        <span class="ai-mic-status" id="ai-mic-status">REC</span>
         <button class="ai-transmit-btn" id="ai-transmit-btn">TRANSMIT</button>
       </div>
       <div class="ai-response-area">
@@ -280,9 +332,8 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: query,
-          environment: env,
-          timestamp: new Date().toISOString()
+          question: query,
+          env: env
         })
       });
 
@@ -328,10 +379,95 @@
     fetch(HERALD_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text, priority: 'normal' })
+      body: JSON.stringify({ text: text, priority: 5 })
     }).catch(() => {
       // Herald may not be available
     });
+  }
+
+  // ── Voice Input (Chrome Web Speech API) ──
+  const micBtn = document.getElementById('ai-mic-btn');
+  const micStatus = document.getElementById('ai-mic-status');
+  let recognition = null;
+  let isListening = false;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'sv-SE'; // Swedish primary, falls back to browser default
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function() {
+      isListening = true;
+      micBtn.classList.add('listening');
+      micStatus.classList.add('active');
+      inputEl.placeholder = 'Listening...';
+      inputEl.value = '';
+    };
+
+    recognition.onresult = function(event) {
+      let transcript = '';
+      let isFinal = false;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+        if (event.results[i].isFinal) isFinal = true;
+      }
+      inputEl.value = transcript;
+
+      if (isFinal) {
+        // Auto-submit after final result
+        stopListening();
+        setTimeout(submitQuery, 300);
+      }
+    };
+
+    recognition.onerror = function(event) {
+      console.warn('[AEGIS] Speech recognition error:', event.error);
+      stopListening();
+      if (event.error === 'not-allowed') {
+        inputEl.placeholder = 'Microphone access denied — check browser permissions';
+      } else if (event.error === 'no-speech') {
+        inputEl.placeholder = 'No speech detected — try again';
+      } else {
+        inputEl.placeholder = 'Enter command or question...';
+      }
+    };
+
+    recognition.onend = function() {
+      stopListening();
+    };
+
+    function stopListening() {
+      isListening = false;
+      micBtn.classList.remove('listening');
+      micStatus.classList.remove('active');
+      if (inputEl.placeholder === 'Listening...') {
+        inputEl.placeholder = 'Enter command or question...';
+      }
+    }
+
+    micBtn.addEventListener('click', function() {
+      if (isProcessing) return;
+      if (isListening) {
+        recognition.stop();
+        stopListening();
+      } else {
+        try {
+          recognition.start();
+        } catch (e) {
+          // Already started
+          recognition.stop();
+          setTimeout(() => recognition.start(), 100);
+        }
+      }
+    });
+  } else {
+    // Browser doesn't support speech recognition
+    micBtn.disabled = true;
+    micBtn.title = 'Voice input not supported in this browser — use Chrome';
   }
 
   // ── Event handlers ──
