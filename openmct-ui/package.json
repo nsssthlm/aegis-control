@@ -1,0 +1,16 @@
+{
+  "name": "aegis-control-openmct-ui",
+  "version": "4.0.0",
+  "description": "AEGIS CONTROL — NASA ISS Mission Control-style monitoring dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

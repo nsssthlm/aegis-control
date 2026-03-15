@@ -1,0 +1,10 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+websockets==12.0
+aiosqlite==0.20.0
+httpx==0.27.0
+python-dotenv==1.0.1
+pywinrm[credssp]==0.4.3
+icmplib==3.0.4
+openai==1.30.0
+honcho==1.1.0

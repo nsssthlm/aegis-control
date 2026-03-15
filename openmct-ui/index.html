@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AEGIS CONTROL v4.0 — OMNEFORGE OPERATIONS CENTER</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F6E1;</text></svg>">
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       AEGIS CONTROL — CORE CSS
+       NASA ISS Mission Control Aesthetic / Green Phosphor CRT
+       ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --aegis-bg: #020c0e;
+      --aegis-surface: #041418;
+      --aegis-border: #0a3040;
+      --aegis-primary: #00ff88;
+      --aegis-dim: #007744;
+      --aegis-warning: #ffaa00;
+      --aegis-critical: #ff3333;
+      --aegis-intrusion: #ff0066;
+      --aegis-sensitive: #ff6600;
+      --aegis-text: #b0ffd0;
+      --aegis-muted: #446655;
+      --aegis-font: 'Space Mono', 'Courier New', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--aegis-bg);
+      color: var(--aegis-text);
+      font-family: var(--aegis-font);
+      font-size: 13px;
+      overflow: hidden;
+      -webkit-font-smoothing: none;
+    }
+
+    /* ─── CRT SCANLINES OVERLAY ─── */
+    #crt-overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 10000;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15) 0px,
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    }
+    #crt-overlay::after {
+      content: '';
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.4) 100%);
+    }
+
+    /* ─── BOOT SEQUENCE ─── */
+    #boot-screen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #010a0c;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+    #boot-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #boot-content {
+      width: 600px;
+      font-family: var(--aegis-font);
+      color: var(--aegis-primary);
+    }
+    .boot-line {
+      opacity: 0;
+      margin-bottom: 4px;
+      font-size: 14px;
+      white-space: pre;
+    }
+    .boot-line.visible { opacity: 1; }
+    .boot-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--aegis-primary);
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+      margin-bottom: 2px;
+    }
+    .boot-subtitle {
+      font-size: 15px;
+      color: var(--aegis-dim);
+      margin-bottom: 16px;
+    }
+    .boot-progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .boot-progress-label {
+      width: 200px;
+      color: var(--aegis-muted);
+    }
+    .boot-progress-bar {
+      flex: 1;
+      height: 8px;
+      background: var(--aegis-surface);
+      border: 1px solid var(--aegis-border);
+      position: relative;
+      overflow: hidden;
+    }
+    .boot-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--aegis-primary);
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+      transition: width 0.3s ease;
+    }
+    .boot-progress-pct {
+      width: 40px;
+      text-align: right;
+      color: var(--aegis-dim);
+    }
+    .boot-nominal {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--aegis-primary);
+      text-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+      margin-top: 20px;
+      opacity: 0;
+      text-align: center;
+    }
+    .boot-nominal.visible {
+      opacity: 1;
+    }
+
+    /* ─── MAIN APP CONTAINER ─── */
+    #app {
+      width: 100%; height: 100%;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    #app.visible {
+      display: flex;
+      opacity: 1;
+    }
+
+    /* ─── HEADER BAR ─── */
+    #header {
+      height: 42px;
+      background: linear-gradient(180deg, #061a20 0%, #041418 100%);
+      border-bottom: 1px solid var(--aegis-border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    #header-logo {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--aegis-primary);
+      text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+      letter-spacing: 3px;
+      white-space: nowrap;
+    }
+    #header-logo span {
+      color: var(--aegis-muted);
+      font-weight: 400;
+      font-size: 11px;
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .header-separator {
+      width: 1px;
+      height: 24px;
+      background: var(--aegis-border);
+    }
+    #header-env { /* styled by env-selector plugin */ }
+    #header-time {
+      font-size: 13px;
+      color: var(--aegis-dim);
+      letter-spacing: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+    #header-connection {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--aegis-muted);
+    }
+    #connection-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--aegis-critical);
+      transition: background 0.3s;
+    }
+    #connection-dot.connected {
+      background: var(--aegis-primary);
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+    }
+    #header-threat {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    #threat-label { color: var(--aegis-muted); }
+    #threat-value {
+      font-weight: 700;
+      padding: 2px 10px;
+      border: 1px solid;
+      font-size: 12px;
+    }
+    .threat-low { color: var(--aegis-primary); border-color: var(--aegis-dim) !important; }
+    .threat-guarded { color: #00ccff; border-color: #006688 !important; }
+    .threat-elevated { color: var(--aegis-warning); border-color: #886600 !important; }
+    .threat-high { color: var(--aegis-sensitive); border-color: #884400 !important; }
+    .threat-severe { color: var(--aegis-critical); border-color: #880000 !important; animation: threat-pulse 1s infinite; }
+
+    @keyframes threat-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ─── MAIN GRID ─── */
+    #main-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: 1fr 1fr auto;
+      gap: 1px;
+      background: var(--aegis-border);
+      overflow: hidden;
+    }
+
+    /* ─── PANEL GENERIC ─── */
+    .panel {
+      background: var(--aegis-surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      background: linear-gradient(90deg, rgba(0,255,136,0.06) 0%, transparent 100%);
+      border-bottom: 1px solid var(--aegis-border);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--aegis-dim);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .panel-header .panel-indicator {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--aegis-dim);
+      flex-shrink: 0;
+    }
+    .panel-header .panel-indicator.active {
+      background: var(--aegis-primary);
+      box-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
+    }
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+    }
+
+    /* Scrollbar styling */
+    .panel-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .panel-body::-webkit-scrollbar-track {
+      background: var(--aegis-bg);
+    }
+    .panel-body::-webkit-scrollbar-thumb {
+      background: var(--aegis-border);
+      border-radius: 2px;
+    }
+    .panel-body::-webkit-scrollbar-thumb:hover {
+      background: var(--aegis-dim);
+    }
+
+    /* ─── PANEL: MISSION OVERVIEW (top-left) ─── */
+    #panel-mission { grid-column: 1; grid-row: 1; }
+
+    /* ─── PANEL: ALERT FEED (top-right) ─── */
+    #panel-alerts { grid-column: 2; grid-row: 1; }
+
+    /* ─── PANEL: SYSTEM STATUS (middle-left) ─── */
+    #panel-system { grid-column: 1; grid-row: 2; }
+
+    /* ─── PANEL: CAMERA PRESENCE (middle-right) ─── */
+    #panel-camera { grid-column: 2; grid-row: 2; }
+
+    /* ─── PANEL: AI QUERY (bottom, full width) ─── */
+    #panel-ai { grid-column: 1 / -1; grid-row: 3; min-height: 120px; }
+
+    /* ─── FOOTER STATUS BAR ─── */
+    #footer {
+      height: 24px;
+      background: var(--aegis-bg);
+      border-top: 1px solid var(--aegis-border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 10px;
+      color: var(--aegis-muted);
+      gap: 20px;
+      flex-shrink: 0;
+    }
+    #footer-msg { flex: 1; }
+    #footer-fps { font-variant-numeric: tabular-nums; }
+    #footer-version { letter-spacing: 2px; }
+
+    /* ─── UTILITY CLASSES ─── */
+    .text-primary { color: var(--aegis-primary); }
+    .text-warning { color: var(--aegis-warning); }
+    .text-critical { color: var(--aegis-critical); }
+    .text-intrusion { color: var(--aegis-intrusion); }
+    .text-sensitive { color: var(--aegis-sensitive); }
+    .text-dim { color: var(--aegis-dim); }
+    .text-muted { color: var(--aegis-muted); }
+
+    @keyframes blink-3x {
+      0%, 100% { opacity: 1; }
+      16.6%, 50%, 83.3% { opacity: 0; }
+      33.3%, 66.6% { opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      92% { opacity: 1; }
+      93% { opacity: 0.8; }
+      94% { opacity: 1; }
+      96% { opacity: 0.9; }
+      97% { opacity: 1; }
+    }
+
+    body { animation: flicker 8s infinite; }
+  </style>
+</head>
+<body>
+
+  <!-- CRT SCANLINES -->
+  <div id="crt-overlay"></div>
+
+  <!-- BOOT SEQUENCE -->
+  <div id="boot-screen">
+    <div id="boot-content">
+      <div class="boot-line boot-title" data-delay="0">AEGIS CONTROL SYSTEM v4.0</div>
+      <div class="boot-line boot-subtitle" data-delay="200">OMNEFORGE OPERATIONS CENTER</div>
+      <div class="boot-line" data-delay="500" style="color: var(--aegis-muted);">INITIALIZING SUBSYSTEMS...</div>
+      <div class="boot-line" data-delay="600" style="margin-top: 12px;"></div>
+
+      <div id="boot-subsystems" style="opacity: 0;">
+        <div class="boot-progress-row" data-subsystem="THREAT ENGINE" data-duration="800" data-delay="700">
+          <span class="boot-progress-label">THREAT ENGINE</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="CAMERA GRID" data-duration="600" data-delay="900">
+          <span class="boot-progress-label">CAMERA GRID</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="WEBSOCKET BUS" data-duration="500" data-delay="1100">
+          <span class="boot-progress-label">WEBSOCKET BUS</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="AI CORTEX LINK" data-duration="1000" data-delay="1300">
+          <span class="boot-progress-label">AI CORTEX LINK</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="ENV TELEMETRY" data-duration="700" data-delay="1500">
+          <span class="boot-progress-label">ENV TELEMETRY</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="MISSION DB" data-duration="900" data-delay="1700">
+          <span class="boot-progress-label">MISSION DB</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="ALERT PROCESSOR" data-duration="600" data-delay="1900">
+          <span class="boot-progress-label">ALERT PROCESSOR</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+        <div class="boot-progress-row" data-subsystem="HERALD VOICE" data-duration="500" data-delay="2100">
+          <span class="boot-progress-label">HERALD VOICE</span>
+          <div class="boot-progress-bar"><div class="boot-progress-fill"></div></div>
+          <span class="boot-progress-pct">0%</span>
+        </div>
+      </div>
+
+      <div class="boot-nominal" id="boot-nominal">ALL SYSTEMS NOMINAL</div>
+    </div>
+  </div>
+
+  <!-- MAIN APPLICATION -->
+  <div id="app">
+    <!-- HEADER -->
+    <header id="header">
+      <div id="header-logo">AEGIS CONTROL <span>v4.0</span></div>
+      <div class="header-separator"></div>
+      <div id="header-env"></div>
+      <div class="header-separator"></div>
+      <div id="header-time">--:--:-- UTC</div>
+      <div class="header-separator"></div>
+      <div id="header-connection">
+        <div id="connection-dot"></div>
+        <span id="connection-text">DISCONNECTED</span>
+      </div>
+      <div id="header-threat">
+        <span id="threat-label">THREAT LEVEL</span>
+        <span id="threat-value" class="threat-low">LOW</span>
+      </div>
+    </header>
+
+    <!-- MAIN GRID -->
+    <div id="main-grid">
+      <!-- MISSION OVERVIEW -->
+      <div class="panel" id="panel-mission">
+        <div class="panel-header">
+          <div class="panel-indicator active"></div>
+          MISSION OVERVIEW
+        </div>
+        <div class="panel-body" id="mission-overview-body">
+          <div class="text-muted" style="padding: 20px; text-align: center;">AWAITING TELEMETRY...</div>
+        </div>
+      </div>
+
+      <!-- ALERT FEED -->
+      <div class="panel" id="panel-alerts">
+        <div class="panel-header">
+          <div class="panel-indicator active" id="alert-indicator"></div>
+          ALERT FEED
+          <span id="alert-count" style="margin-left: auto; color: var(--aegis-muted); font-weight: 400; letter-spacing: 1px;">0 EVENTS</span>
+        </div>
+        <div class="panel-body" id="alert-feed-body"></div>
+      </div>
+
+      <!-- SYSTEM STATUS -->
+      <div class="panel" id="panel-system">
+        <div class="panel-header">
+          <div class="panel-indicator active"></div>
+          SYSTEM STATUS
+        </div>
+        <div class="panel-body" id="server-grid-body">
+          <div class="text-muted" style="padding: 20px; text-align: center;">SCANNING NODES...</div>
+        </div>
+      </div>
+
+      <!-- CAMERA PRESENCE -->
+      <div class="panel" id="panel-camera">
+        <div class="panel-header">
+          <div class="panel-indicator active"></div>
+          CAMERA PRESENCE
+        </div>
+        <div class="panel-body" id="camera-presence-body">
+          <div class="text-muted" style="padding: 20px; text-align: center;">NO FEEDS ACTIVE</div>
+        </div>
+      </div>
+
+      <!-- AI QUERY -->
+      <div class="panel" id="panel-ai">
+        <div class="panel-header">
+          <div class="panel-indicator active" id="ai-indicator"></div>
+          AI QUERY INTERFACE
+          <span id="ai-status" style="margin-left: auto; color: var(--aegis-muted); font-weight: 400; letter-spacing: 1px;">STANDBY</span>
+        </div>
+        <div class="panel-body" id="ai-query-body"></div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer id="footer">
+      <span id="footer-msg">AEGIS CONTROL OPERATIONAL</span>
+      <span id="footer-fps"></span>
+      <span id="footer-version">AEGIS v4.0 | OMNEFORGE OPS</span>
+    </footer>
+  </div>
+
+  <!-- LOAD PLUGINS -->
+  <script src="/plugins/aegis-theme/theme.js"></script>
+  <script src="/plugins/env-selector/env-selector.js"></script>
+  <script src="/plugins/alert-feed/alert-feed.js"></script>
+  <script src="/plugins/server-grid/server-grid.js"></script>
+  <script src="/plugins/camera-presence/camera-presence.js"></script>
+  <script src="/plugins/ai-query/ai-query.js"></script>
+  <script src="/plugins/mission-overview/mission-overview.js"></script>
+  <script src="/main.js"></script>
+
+  <!-- BOOT SEQUENCE SCRIPT -->
+  <script>
+    (function() {
+      const bootScreen = document.getElementById('boot-screen');
+      const bootContent = document.getElementById('boot-content');
+      const bootSubsystems = document.getElementById('boot-subsystems');
+      const bootNominal = document.getElementById('boot-nominal');
+      const app = document.getElementById('app');
+
+      // Show boot lines sequentially
+      const lines = bootContent.querySelectorAll('.boot-line');
+      lines.forEach(line => {
+        const delay = parseInt(line.dataset.delay || 0);
+        setTimeout(() => {
+          line.classList.add('visible');
+        }, delay);
+      });
+
+      // Show subsystems container
+      setTimeout(() => {
+        bootSubsystems.style.opacity = '1';
+      }, 600);
+
+      // Animate progress bars
+      const rows = bootSubsystems.querySelectorAll('.boot-progress-row');
+      rows.forEach(row => {
+        const delay = parseInt(row.dataset.delay || 0);
+        const duration = parseInt(row.dataset.duration || 500);
+        const fill = row.querySelector('.boot-progress-fill');
+        const pct = row.querySelector('.boot-progress-pct');
+
+        setTimeout(() => {
+          const startTime = Date.now();
+          const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            const percent = Math.round(eased * 100);
+            fill.style.width = percent + '%';
+            pct.textContent = percent + '%';
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              pct.style.color = 'var(--aegis-primary)';
+            }
+          };
+          requestAnimationFrame(animate);
+        }, delay);
+      });
+
+      // Show ALL SYSTEMS NOMINAL
+      setTimeout(() => {
+        bootNominal.classList.add('visible');
+      }, 3200);
+
+      // Fade out boot, show app
+      setTimeout(() => {
+        bootScreen.classList.add('fade-out');
+        app.style.display = 'flex';
+        requestAnimationFrame(() => {
+          app.classList.add('visible');
+        });
+        setTimeout(() => {
+          bootScreen.remove();
+          // Dispatch boot complete event
+          window.dispatchEvent(new CustomEvent('aegis:boot-complete'));
+        }, 800);
+      }, 4000);
+    })();
+  </script>
+</body>
+</html>

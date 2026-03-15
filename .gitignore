@@ -4,26 +4,12 @@ dist/
 .env.local
 *.log
 .DS_Store
-.task-master/
-
-# Logs
-logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-dev-debug.log
-# Dependency directories
-# Environment variables
-# Editor directories and files
+__pycache__/
+*.pyc
+*.mp3
+aegis.db
+/tmp/aegis-voice/
 .idea
 .vscode
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
-# OS specific
-
-# Task files
-# tasks.json
-# tasks/ 
