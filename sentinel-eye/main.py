@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from datetime import datetime
+from typing import Dict, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -27,7 +28,7 @@ THROTTLE_SECONDS = 60  # per camera
 
 # Parse CAMERA_MAP from env: "MAC1:Name1,MAC2:Name2"
 _raw_camera_map = os.getenv("CAMERA_MAP", "")
-CAMERA_MAP: dict[str, str] = {}
+CAMERA_MAP: Dict[str, str] = {}
 if _raw_camera_map:
     for pair in _raw_camera_map.split(","):
         pair = pair.strip()
@@ -42,10 +43,10 @@ if _raw_camera_map:
 app = FastAPI(title="AEGIS Sentinel Eye", version="1.0.0")
 
 # Throttle state: {camera_mac: last_event_timestamp}
-_last_event: dict[str, float] = {}
+_last_event: Dict[str, float] = {}
 
 # HTTP client for forwarding to Orion Hub
-_hub_client: httpx.AsyncClient | None = None
+_hub_client: Optional[httpx.AsyncClient] = None
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +83,7 @@ def _is_throttled(mac: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _parse_protect_payload(payload: dict) -> dict | None:
+def _parse_protect_payload(payload: dict) -> Optional[dict]:
     """Parse a UniFi Protect webhook payload.
 
     Returns a dict with keys: camera_mac, camera_name, trigger_key, timestamp

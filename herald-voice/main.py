@@ -6,6 +6,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from typing import Optional, Tuple
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -40,9 +41,9 @@ BOOT_PHRASES = [
 app = FastAPI(title="AEGIS Herald Voice", version="1.0.0")
 
 # The playback queue: items are (text, filepath) tuples
-_queue: asyncio.Queue[tuple[str, Path]] = asyncio.Queue(maxsize=3)
-_worker_task: asyncio.Task | None = None
-_client: AsyncOpenAI | None = None
+_queue: asyncio.Queue[Tuple[str, Path]] = asyncio.Queue(maxsize=3)
+_worker_task: Optional[asyncio.Task] = None
+_client: Optional[AsyncOpenAI] = None
 
 
 # ---------------------------------------------------------------------------
