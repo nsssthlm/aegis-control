@@ -13,3 +13,4 @@ aegis.db
 .vscode
 *.suo
 *.sw?
+docs/MISSION_CONTROL_*.md

@@ -22,6 +22,7 @@ from collectors.winrm import WinRMCollector
 from collectors.ping import PingCollector
 from collectors.vpn_check import VPNCheckCollector
 from collectors.unifi import UniFiCollector
+from collectors.powershell_api import PowerShellAPICollector
 
 # ---------------------------------------------------------------------------
 # Environment configuration helpers
@@ -59,17 +60,26 @@ def _get_ping_targets() -> dict[str, dict[str, str]]:
     if personal_hosts:
         targets["PERSONAL"] = personal_hosts
 
-    # CEDERVALL — UniFi controller / other hosts
+    # CEDERVALL — servers from env vars
     cedervall_hosts = {}
+    server_map = {
+        "DC_PRIMARY": "CV-DC05",
+        "DC_SECONDARY": "CV-DC06",
+        "FS01": "CV-FS01",
+        "FS05": "CV-FS05",
+        "APP01": "CV-APP1",
+        "JUMP": "CV-NSS001",
+    }
+    for suffix, name in server_map.items():
+        ip = os.getenv(f"ENV_CEDERVALL_{suffix}", "")
+        if ip:
+            cedervall_hosts[name] = ip
+    # Also add UniFi gateway
     unifi_url = os.getenv("ENV_CEDERVALL_UNIFI_URL", "")
     if unifi_url:
-        # Extract IP from URL
         ip = unifi_url.replace("https://", "").replace("http://", "").split(":")[0].split("/")[0]
         if ip:
             cedervall_hosts["UniFi-GW"] = ip
-    winrm_host = os.getenv("ENV_CEDERVALL_WINRM_HOST", "")
-    if winrm_host:
-        cedervall_hosts["CV-DC"] = winrm_host
     if cedervall_hosts:
         targets["CEDERVALL"] = cedervall_hosts
 
@@ -124,6 +134,19 @@ async def main() -> None:
     print("[BRIDGE] ========================================")
     print("[BRIDGE] AEGIS Data Bridge starting")
     print("[BRIDGE] ========================================")
+
+    # ---- PowerShell API collector (Cedervall) ----
+    cedervall_config = _get_env_config("CEDERVALL")
+    if cedervall_config.get("jump_url") and cedervall_config.get("jump_api_key"):
+        collector = PowerShellAPICollector(cedervall_config)
+        collectors.append(collector)
+        tasks.append(
+            asyncio.create_task(
+                _supervised_task("PS-API/CEDERVALL", collector.run)
+            )
+        )
+    else:
+        print("[BRIDGE] PS-API/CEDERVALL — skipped (no jump_url or jump_api_key)")
 
     # ---- Wazuh collectors ----
     for env_name in ("CEDERVALL", "VALVX"):
